@@ -27,13 +27,11 @@ try:
     while True:
         temperature = round(random.uniform(20.0, 40.0), 1)
         humidity = round(random.uniform(30.0, 80.0), 1)
-
         data = {
             "device_id": DEVICE_ID,
             "temperature": temperature,
             "humidity": humidity
         }
-
         payload = json.dumps(data)
 
         result = client.publish(TOPIC, payload)

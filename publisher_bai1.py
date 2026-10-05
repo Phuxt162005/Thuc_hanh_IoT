@@ -5,8 +5,8 @@ BROKER_HOST = "localhost"
 BROKER_PORT = 1883
 TOPIC = "iot/lab/message"
 
-STUDENT_ID = "B23DCCN001"      # Thay bằng mã sinh viên
-STUDENT_NAME = "Nguyen Van A"  # Thay bằng họ tên
+STUDENT_ID = "B23DCCN651"    
+STUDENT_NAME = "Bui Hong Phu"
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -23,10 +23,7 @@ try:
     client.connect(BROKER_HOST, BROKER_PORT, 60)
     client.loop_start()
 
-    message = (
-        f"Xin chao tu client Python MQTT - "
-        f"{STUDENT_ID} - {STUDENT_NAME}"
-    )
+    message = (f"Xin chao tu client Python MQTT - " f"{STUDENT_ID} - {STUDENT_NAME}")
 
     while True:
         result = client.publish(TOPIC, message)

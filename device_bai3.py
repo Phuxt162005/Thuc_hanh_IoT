@@ -12,10 +12,7 @@ current_status = "OFF"
 
 
 def publish_status(client):
-    payload = {
-        "device_id": DEVICE_ID,
-        "status": current_status
-    }
+    payload = {"device_id": DEVICE_ID, "status": current_status}
     client.publish(STATUS_TOPIC, json.dumps(payload))
     print(f"Da gui trang thai: {json.dumps(payload)}")
 
