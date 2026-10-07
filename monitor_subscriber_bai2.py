@@ -1,53 +1,59 @@
+"""Bai 2: theo doi sensor01/sensor02 va canh bao theo nguong."""
+import argparse
 import json
-import paho.mqtt.client as mqtt
+import math
+import sys
+from datetime import datetime
 
-BROKER_HOST = "localhost"
-BROKER_PORT = 1883
-TOPIC = "iot/lab/sensor01/data"
+from mqtt_common import MQTTConnection, add_connection_arguments, run
+
+TOPIC = "iot/lab/+/data"
+DEVICE_IDS = ("sensor01", "sensor02")
 
 
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print("Monitoring Subscriber da ket noi MQTT Broker.")
-        client.subscribe(TOPIC)
-        print(f"Da subscribe: {TOPIC}")
-    else:
-        print(f"Ket noi that bai, ma loi: {rc}")
+def parse_sensor_data(payload):
+    data = json.loads(payload.decode("utf-8"))
+    if not isinstance(data, dict) or data.get("device_id") not in DEVICE_IDS:
+        raise ValueError("device_id phai la sensor01 hoac sensor02.")
+    values = []
+    for field in ("temperature", "humidity"):
+        value = data[field]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{field} phai la so.")
+        if not math.isfinite(value):
+            raise ValueError(f"{field} phai la so huu han.")
+        values.append(float(value))
+    if not 0 <= values[1] <= 100:
+        raise ValueError("humidity phai nam trong khoang 0..100.")
+    return data["device_id"], *values
 
 
 def on_message(client, userdata, msg):
     try:
-        data = json.loads(msg.payload.decode("utf-8"))
-
-        device_id = data["device_id"]
-        temperature = float(data["temperature"])
-        humidity = float(data["humidity"])
-
-        print("\n--- SENSOR DATA ---")
+        device_id, temperature, humidity = parse_sensor_data(msg.payload)
+        if msg.topic != f"iot/lab/{device_id}/data":
+            raise ValueError("device_id khong khop topic.")
+        print(f"\n--- SENSOR DATA [{datetime.now():%H:%M:%S}] ---")
         print(f"Device: {device_id}")
         print(f"Temperature: {temperature:.1f} C")
         print(f"Humidity: {humidity:.1f} %")
-
         if temperature > 35:
             print("CANH BAO: Nhiet do cao")
-
         if humidity < 40:
             print("CANH BAO: Do am thap")
+        print(flush=True)
+    except (ValueError, KeyError, TypeError) as error:
+        print(f"Du lieu khong hop le: {error}", flush=True)
 
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-        print(f"Du lieu khong hop le: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_connection_arguments(parser)
+    args = parser.parse_args()
+    with MQTTConnection(args.host, args.port, TOPIC, on_message) as connection:
+        print("Dang theo doi sensor01/sensor02. Nhan Ctrl+C de dung.", flush=True)
+        connection.wait()
 
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-client.on_connect = on_connect
-client.on_message = on_message
-
-try:
-    client.connect(BROKER_HOST, BROKER_PORT, 60)
-    print("Monitoring Subscriber dang cho du lieu... Nhan Ctrl+C de dung.")
-    client.loop_forever()
-
-except KeyboardInterrupt:
-    print("\nDung Monitoring Subscriber.")
-finally:
-    client.disconnect()
+if __name__ == "__main__":
+    sys.exit(run(main))

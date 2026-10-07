@@ -1,60 +1,57 @@
+"""Bai 3: mo phong light01, fan01 va pump01 nhan ON/OFF."""
+import argparse
 import json
+import sys
+
 import paho.mqtt.client as mqtt
+from mqtt_common import MQTTConnection, add_connection_arguments, run
 
-BROKER_HOST = "localhost"
-BROKER_PORT = 1883
-
-CMD_TOPIC = "iot/lab/light01/cmd"
-STATUS_TOPIC = "iot/lab/light01/status"
-
-DEVICE_ID = "light01"
-current_status = "OFF"
+DEVICE_IDS = ("light01", "fan01", "pump01")
+DEVICE_STATES = {"light01": "OFF"}
+CMD_TOPIC = "iot/lab/+/cmd"
 
 
-def publish_status(client):
-    payload = {"device_id": DEVICE_ID, "status": current_status}
-    client.publish(STATUS_TOPIC, json.dumps(payload))
-    print(f"Da gui trang thai: {json.dumps(payload)}")
-
-
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print("Smart Light Device da ket noi MQTT Broker.")
-        client.subscribe(CMD_TOPIC)
-        print(f"Da subscribe: {CMD_TOPIC}")
-    else:
-        print(f"Ket noi that bai, ma loi: {rc}")
+def publish_status(client, device_id="light01"):
+    data = {"device_id": device_id, "status": DEVICE_STATES[device_id]}
+    payload = json.dumps(data)
+    result = client.publish(f"iot/lab/{device_id}/status", payload)
+    # Callback chay tren network thread: khong wait_for_publish tai day.
+    if result.rc != mqtt.MQTT_ERR_SUCCESS:
+        print(f"Gui trang thai that bai, ma loi: {result.rc}", flush=True)
+        return False
+    print(f"Yeu cau gui trang thai: {payload}", flush=True)
+    return True
 
 
 def on_message(client, userdata, msg):
-    global current_status
-
+    device_id = msg.topic.split("/")[-2]
+    if device_id not in DEVICE_STATES:
+        print(f"Bo qua lenh cho thiet bi chua mo phong: {device_id}", flush=True)
+        return
     command = msg.payload.decode("utf-8", errors="replace").strip().upper()
-
-    if command == "ON":
-        current_status = "ON"
-        print("Nhan lenh ON -> Den BAT")
-        publish_status(client)
-
-    elif command == "OFF":
-        current_status = "OFF"
-        print("Nhan lenh OFF -> Den TAT")
-        publish_status(client)
-
-    else:
-        print(f"Lenh khong hop le: {command}")
+    if command not in ("ON", "OFF"):
+        print(f"Lenh khong hop le cho {device_id}: {command}", flush=True)
+        return
+    DEVICE_STATES[device_id] = command
+    print(f"Nhan lenh {device_id} {command} -> trang thai {command}", flush=True)
+    publish_status(client, device_id)
 
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-client.on_connect = on_connect
-client.on_message = on_message
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_connection_arguments(parser)
+    parser.add_argument("--device-id", choices=DEVICE_IDS, default="light01")
+    parser.add_argument("--all-devices", action="store_true",
+                        help="Mo phong ca light01, fan01 va pump01.")
+    args = parser.parse_args()
+    devices = DEVICE_IDS if args.all_devices else (args.device_id,)
+    DEVICE_STATES.clear()
+    DEVICE_STATES.update({device_id: "OFF" for device_id in devices})
+    with MQTTConnection(args.host, args.port, CMD_TOPIC, on_message) as connection:
+        print(f"Thiet bi: {', '.join(devices)}; ban dau OFF. Nhan Ctrl+C de dung.",
+              flush=True)
+        connection.wait()
 
-try:
-    client.connect(BROKER_HOST, BROKER_PORT, 60)
-    print("Smart Light Device dang cho lenh... Nhan Ctrl+C de dung.")
-    client.loop_forever()
 
-except KeyboardInterrupt:
-    print("\nDung Smart Light Device.")
-finally:
-    client.disconnect()
+if __name__ == "__main__":
+    sys.exit(run(main))
