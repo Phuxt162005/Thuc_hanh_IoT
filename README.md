@@ -1,7 +1,5 @@
 # Thực hành buổi 1 — Python và MQTT
 
-**Sinh viên:** Nguyễn Hải Hưng · **Mã SV:** B23DCCN371
-
 Bài nộp gồm ba bài mô phỏng gửi nhận thông điệp, giám sát cảm biến và điều khiển thiết bị qua MQTT. Ảnh thực nghiệm ngày **07/10/2026** nằm trong `minh-chung/`.
 
 ## Cấu trúc repo
