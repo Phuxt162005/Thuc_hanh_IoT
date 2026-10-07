@@ -15,7 +15,7 @@ def main():
     parser.add_argument("--count", type=non_negative_int, default=0,
                         help="So message; 0 la gui lien tuc den Ctrl+C.")
     args = parser.parse_args()
-    message = (f"Xin chao tu client Python MQTT - "
+    message = (f"Hello world! - "
                f"{args.student_id} - {args.student_name}")
     with MQTTConnection(args.host, args.port) as connection:
         sent = 0
